@@ -1,6 +1,8 @@
 import { useParams } from "react-router-dom";
 import { fetchArticleById } from "../api";
 import { useEffect, useState } from "react";
+import Comments from "../components/Comments";
+
 export default function SingleArticleById() {
   const { article_id } = useParams();
   const [article, setArticle] = useState(null);
@@ -34,6 +36,7 @@ export default function SingleArticleById() {
         className="mb-6 w-full rounded"
       />
       <p className="text-white whitespace-pre-line">{article.body}</p>
+      <Comments />
     </article>
   );
 }
