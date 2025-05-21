@@ -1,13 +1,17 @@
-import "./App.css";
-const cors = require("cors");
-
-app.use(cors());
+import { Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import Home from "./pages/Home";
+import SingleArticle from "./pages/SingleArticle";
 
 function App() {
   return (
-    <>
-      <h1 className="text-3xl font-bold underline">^NEWS</h1>
-    </>
+    <div className="bg-black min-h-screen text-white">
+      <Header />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/article/:article_id" element={<SingleArticle />} />
+      </Routes>
+    </div>
   );
 }
 
