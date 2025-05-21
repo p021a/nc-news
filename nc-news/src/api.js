@@ -27,3 +27,18 @@ export async function fetchArticleById(article_id) {
   }
   return data;
 }
+
+export async function fetchCommentsByArticleId(article_id) {
+  const { data, error } = await supabase
+    .from("comments")
+    .select("*")
+    .eq("article_id", article_id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching comments:", error);
+    return [];
+  }
+
+  return data;
+}
