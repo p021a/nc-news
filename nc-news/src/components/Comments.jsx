@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchCommentsByArticleId } from "../api";
+import { fetchCommentsByArticleId, deleteComment } from "../api";
 import { supabase } from "../supabaseClient";
 
 export default function Comments() {
@@ -8,52 +8,33 @@ export default function Comments() {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
-  const [author, setAuthor] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  // Default author for comments
+  const defaultAuthor = "cooljmessy";
+
   useEffect(() => {
-    fetchCommentsByArticleId(article_id).then((data) => {
-      setComments(data);
-      setLoading(false);
-    });
-
-    async function fetchUser() {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        console.log("No active session found");
-        setAuthor("");
-        return;
-      }
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        console.error("Error getting user:", userError);
-        setAuthor("");
-      } else if (user) {
-        setAuthor(user.email || "");
-      } else {
-        setAuthor("");
-      }
-    }
-
-    fetchUser();
+    // Fetch comments for the article
+    fetchCommentsByArticleId(article_id)
+      .then((data) => {
+        setComments(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError("Failed to load comments.");
+        setLoading(false);
+      });
   }, [article_id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate comment body
     if (!body.trim()) {
-      setError("Please write a comment.");
+      setError("Comment cannot be empty.");
+      setTimeout(() => setError(null), 3000);
       return;
     }
 
@@ -67,42 +48,54 @@ export default function Comments() {
         .insert([
           {
             article_id: parseInt(article_id),
-            author: author.trim(),
+            author: defaultAuthor,
             body: body.trim(),
             votes: 0,
           },
-        ]);
-
-      console.log("Insert data:", insertData);
-      console.log("Insert error:", insertError);
+        ])
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
+      // Append new comment to avoid refetching
+      setComments((prev) => [insertData, ...prev]);
       setBody("");
-      setSuccess("Your comment was posted successfully!");
+      setSuccess("Comment posted successfully!");
       setTimeout(() => setSuccess(null), 3000);
-
-      // Refresh comments
-      const updatedComments = await fetchCommentsByArticleId(article_id);
-      setComments(updatedComments);
     } catch (err) {
-      console.error("Error submitting comment:", err);
       setError("Failed to post comment.");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleDelete = async (comment_id) => {
+    try {
+      await deleteComment(comment_id);
+      // Remove the deleted comment from state
+      setComments((prev) =>
+        prev.filter((comment) => comment.comment_id !== comment_id)
+      );
+      setSuccess("Comment deleted successfully!");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to delete comment.");
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
   return (
     <div className="mt-6">
-      <h3 className="text-xl font-bold mb-4">Comments:</h3>
+      <h3 className="text-xl font-bold mb-4 text-white">Comments:</h3>
 
       <form onSubmit={handleSubmit} className="mb-6">
         <textarea
           placeholder="Write a comment..."
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          className="block bg-white w-full mb-2 p-2 rounded text-black"
+          className="block bg-gray-800 w-full mb-2 p-2 rounded text-white border border-gray-600"
         />
         <button
           type="submit"
@@ -116,33 +109,43 @@ export default function Comments() {
       </form>
 
       {loading ? (
-        <p>Loading comments...</p>
+        <p className="text-gray-400">Loading comments...</p>
       ) : comments.length ? (
         <ul className="space-y-4">
           {comments.map((comment) => (
             <li
               key={comment.comment_id}
-              className="border p-3 rounded bg-white"
+              className="border p-3 rounded bg-gray-800 text-white"
             >
-              <p className="text-sm text-black">{comment.body}</p>
-              <div className="text-xs text-gray-500 mt-1 flex justify-between">
-                <span>{comment.author}</span>
-                <span>
-                  {new Date(comment.created_at).toLocaleString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}
-                </span>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm">{comment.body}</p>
+                <div className="flex justify-between items-center text-xs text-gray-400 mt-1">
+                  <span>{comment.author}</span>
+                  <div className="flex items-center gap-4">
+                    <span className="min-w-[120px] text-right">
+                      {new Date(comment.created_at).toLocaleString("en", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}
+                    </span>
+                    <button
+                      onClick={() => handleDelete(comment.comment_id)}
+                      className="bg-red-600 px-2 py-1 rounded hover:bg-red-700 text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
               </div>
             </li>
           ))}
         </ul>
       ) : (
-        <p>No comments yet.</p>
+        <p className="text-gray-400">No comments yet.</p>
       )}
     </div>
   );
