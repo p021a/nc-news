@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchCommentsByArticleId, deleteComment } from "../api";
+import {
+  fetchCommentsByArticleId,
+  deleteComment,
+  fetchArticleById,
+} from "../api";
 import { supabase } from "../supabaseClient";
 
 export default function Comments() {
@@ -12,18 +16,32 @@ export default function Comments() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Default author for comments
   const defaultAuthor = "cooljmessy";
 
   useEffect(() => {
-    // Fetch comments for the article
-    fetchCommentsByArticleId(article_id)
-      .then((data) => {
-        setComments(data);
-        setLoading(false);
+    const parsedArticleId = parseInt(article_id);
+    if (isNaN(parsedArticleId)) {
+      setError("Invalid article ID.");
+      setLoading(false);
+      return;
+    }
+
+    fetchArticleById(parsedArticleId)
+      .then(() => {
+        fetchCommentsByArticleId(parsedArticleId)
+          .then((data) => {
+            setComments(data);
+            setLoading(false);
+          })
+          .catch((err) => {
+            console.error("Error fetching comments:", err);
+            setError("Failed to load comments.");
+            setLoading(false);
+          });
       })
       .catch((err) => {
-        setError("Failed to load comments.");
+        console.error("Error fetching article:", err);
+        setError("Article not found.");
         setLoading(false);
       });
   }, [article_id]);
@@ -31,9 +49,14 @@ export default function Comments() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate comment body
     if (!body.trim()) {
       setError("Comment cannot be empty.");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    const parsedArticleId = parseInt(article_id);
+    if (isNaN(parsedArticleId)) {
+      setError("Invalid article ID.");
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -47,7 +70,7 @@ export default function Comments() {
         .from("comments")
         .insert([
           {
-            article_id: parseInt(article_id),
+            article_id: parsedArticleId,
             author: defaultAuthor,
             body: body.trim(),
             votes: 0,
@@ -56,15 +79,18 @@ export default function Comments() {
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Error inserting comment:", insertError);
+        throw new Error(insertError.message);
+      }
 
-      // Append new comment to avoid refetching
       setComments((prev) => [insertData, ...prev]);
       setBody("");
       setSuccess("Comment posted successfully!");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError("Failed to post comment.");
+      console.error("Comment insert error details:", err);
+      setError(`Failed to post comment: ${err.message}`);
       setTimeout(() => setError(null), 3000);
     } finally {
       setSubmitting(false);
@@ -74,13 +100,13 @@ export default function Comments() {
   const handleDelete = async (comment_id) => {
     try {
       await deleteComment(comment_id);
-      // Remove the deleted comment from state
       setComments((prev) =>
         prev.filter((comment) => comment.comment_id !== comment_id)
       );
       setSuccess("Comment deleted successfully!");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
+      console.error("Error deleting comment:", err);
       setError("Failed to delete comment.");
       setTimeout(() => setError(null), 3000);
     }

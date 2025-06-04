@@ -14,7 +14,8 @@ export default function Topics() {
         setLoading(false);
       })
       .catch((err) => {
-        setError("Failed to load topics.");
+        console.error("Error fetching topics:", err);
+        setError(`Failed to load topics: ${err.message}`);
         setLoading(false);
       });
   }, []);

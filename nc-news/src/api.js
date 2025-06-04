@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 
+// Fetch all articles
 export async function fetchArticles() {
   const { data, error } = await supabase
     .from("articles")
@@ -9,11 +10,13 @@ export async function fetchArticles() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch articles: ${error.message}`);
+    console.error("Error fetching articles:", error);
+    throw new Error(`Error fetching articles: ${error.message}`);
   }
   return data;
 }
 
+// Fetch a single article by ID
 export async function fetchArticleById(article_id) {
   const { data, error } = await supabase
     .from("articles")
@@ -22,11 +25,13 @@ export async function fetchArticleById(article_id) {
     .single();
 
   if (error) {
-    throw new Error(`Failed to fetch article: ${error.message}`);
+    console.error("Error fetching article:", error);
+    throw new Error(`Error fetching article: ${error.message}`);
   }
   return data;
 }
 
+// Fetch comments for an article
 export async function fetchCommentsByArticleId(article_id) {
   const { data, error } = await supabase
     .from("comments")
@@ -35,11 +40,13 @@ export async function fetchCommentsByArticleId(article_id) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch comments: ${error.message}`);
+    console.error("Error fetching comments:", error);
+    throw new Error(`Error fetching comments: ${error.message}`);
   }
   return data;
 }
 
+// Delete a comment
 export async function deleteComment(comment_id) {
   const { error } = await supabase
     .from("comments")
@@ -47,23 +54,28 @@ export async function deleteComment(comment_id) {
     .eq("comment_id", comment_id);
 
   if (error) {
-    throw new Error(`Failed to delete comment: ${error.message}`);
+    console.error("Error deleting comment:", error);
+    throw new Error(`Error deleting comment: ${error.message}`);
   }
 }
 
+// Fetch unique topics
 export async function fetchTopics() {
-  const { data, error } = await supabase
-    .from("articles")
-    .select("topic")
-    .distinct();
+  const { data, error } = await supabase.from("articles").select("topic");
 
   if (error) {
-    throw new Error(`Failed to fetch topics: ${error.message}`);
+    console.error("Error fetching topics:", error);
+    throw new Error(`Error fetching topics: ${error.message}`);
   }
 
-  return data.map((item) => item.topic).filter(Boolean);
+  // Get unique topics using Set
+  const uniqueTopics = [...new Set(data.map((item) => item.topic))].filter(
+    Boolean
+  );
+  return uniqueTopics;
 }
 
+// Fetch articles by topic
 export async function fetchArticlesByTopic(topic) {
   const { data, error } = await supabase
     .from("articles")
@@ -74,8 +86,9 @@ export async function fetchArticlesByTopic(topic) {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("Error fetching articles by topic:", error);
     throw new Error(
-      `Failed to fetch articles for topic ${topic}: ${error.message}`
+      `Error fetching articles for topic ${topic}: ${error.message}`
     );
   }
   return data;
