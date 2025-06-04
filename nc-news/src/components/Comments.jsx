@@ -7,8 +7,8 @@ export default function Comments() {
   const { article_id } = useParams();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [author, setAuthor] = useState("");
   const [body, setBody] = useState("");
+  const [author, setAuthor] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -18,13 +18,42 @@ export default function Comments() {
       setComments(data);
       setLoading(false);
     });
+
+    async function fetchUser() {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.log("No active session found");
+        setAuthor("");
+        return;
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("Error getting user:", userError);
+        setAuthor("");
+      } else if (user) {
+        setAuthor(user.email || "");
+      } else {
+        setAuthor("");
+      }
+    }
+
+    fetchUser();
   }, [article_id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!author.trim() || !body.trim()) {
-      setError("Please fill in all fields.");
+    if (!body.trim()) {
+      setError("Please write a comment.");
       return;
     }
 
@@ -33,34 +62,31 @@ export default function Comments() {
     setSuccess(null);
 
     try {
-      const { error } = await supabase.from("comments").insert([
-        {
-          article_id: parseInt(article_id),
-          author: author.trim(),
-          body: body.trim(),
-          votes: 0,
-        },
-      ]);
+      const { data: insertData, error: insertError } = await supabase
+        .from("comments")
+        .insert([
+          {
+            article_id: parseInt(article_id),
+            author: author.trim(),
+            body: body.trim(),
+            votes: 0,
+          },
+        ]);
 
-      if (error) throw error;
+      console.log("Insert data:", insertData);
+      console.log("Insert error:", insertError);
 
-      setAuthor("");
+      if (insertError) throw insertError;
+
       setBody("");
       setSuccess("Your comment was posted successfully!");
-
       setTimeout(() => setSuccess(null), 3000);
 
-      const { data, error: fetchError } = await supabase
-        .from("comments")
-        .select("*")
-        .eq("article_id", parseInt(article_id))
-        .order("created_at", { ascending: false });
-
-      if (fetchError) throw fetchError;
-
-      setComments(data);
+      // Refresh comments
+      const updatedComments = await fetchCommentsByArticleId(article_id);
+      setComments(updatedComments);
     } catch (err) {
-      console.error(err);
+      console.error("Error submitting comment:", err);
       setError("Failed to post comment.");
     } finally {
       setSubmitting(false);
@@ -72,13 +98,6 @@ export default function Comments() {
       <h3 className="text-xl font-bold mb-4">Comments:</h3>
 
       <form onSubmit={handleSubmit} className="mb-6">
-        <input
-          type="text"
-          placeholder="Your name"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          className="block bg-white w-full mb-2 p-2 rounded text-black"
-        />
         <textarea
           placeholder="Write a comment..."
           value={body}
