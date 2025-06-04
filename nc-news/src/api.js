@@ -9,7 +9,7 @@ export async function fetchArticles() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw error;
+    throw new Error(`Failed to fetch articles: ${error.message}`);
   }
   return data;
 }
@@ -22,8 +22,7 @@ export async function fetchArticleById(article_id) {
     .single();
 
   if (error) {
-    console.error(error);
-    return null;
+    throw new Error(`Failed to fetch article: ${error.message}`);
   }
   return data;
 }
@@ -36,9 +35,7 @@ export async function fetchCommentsByArticleId(article_id) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching comments:", error);
-    return [];
+    throw new Error(`Failed to fetch comments: ${error.message}`);
   }
-
   return data;
 }
